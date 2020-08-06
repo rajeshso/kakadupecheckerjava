@@ -45,7 +45,7 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 @EmbeddedKafka(
 topics = {"inputTopic","outputTopic","outputDuplicateTopic"}
 )
-/*@TestPropertySource(properties = {
+@TestPropertySource(properties = {
     "spring.application.name.applicationID=applicationID",
     "spring.application.name.windowRetentionDuration=1",
     "spring.application.name.transactionLogName=testValue",
@@ -53,7 +53,7 @@ topics = {"inputTopic","outputTopic","outputDuplicateTopic"}
     "spring.application.name.outputTopic=outputTopic",
     "spring.application.name.outputDuplicateTopic=outputDuplicateTopic",
     "spring.application.name.bootstrapServers=localhost:9092"
-})*/
+})
 @TestInstance(Lifecycle.PER_CLASS)
 public class SimpleKafkaTest {
 
@@ -63,17 +63,11 @@ public class SimpleKafkaTest {
 
   private static final String OUTPUT_DUPLICATE_TOPIC = "outputDuplicateTopic";
 
-
   @Autowired
   private EmbeddedKafkaBroker embeddedKafkaBroker;
 
-  KafkaStreams kafkaStreams;
-
   @Autowired
-  public void setKafkaStreams(KafkaStreams kafkaStreams) {
-    System.setProperty("spring.application.name.bootstrapServers",embeddedKafkaBroker.getBrokersAsString());
-    this.kafkaStreams = kafkaStreams;
-  }
+  KafkaStreams kafkaStreams;
 
   BlockingQueue<ConsumerRecord<String, String>> records1;
 
@@ -87,14 +81,6 @@ public class SimpleKafkaTest {
 
   KafkaMessageListenerContainer<String, String> container3;
 
-  {
-    System.setProperty("spring.application.name.applicationID","applicationID");
-    System.setProperty("spring.application.name.windowRetentionDuration","1");
-    System.setProperty("spring.application.name.transactionLogName","testValue");
-    System.setProperty("spring.application.name.inputTopic","inputTopic");
-    System.setProperty("spring.application.name.outputTopic","outputTopic");
-    System.setProperty("spring.application.name.outputDuplicateTopic","outputDuplicateTopic");
-  }
 
   @BeforeAll
   void setUp() {
@@ -204,14 +190,16 @@ public class SimpleKafkaTest {
 
   @Disabled
   public void testReceivingKafkaEvents() {
-    Consumer<String, String> consumer = configureConsumer(OUTPUT_TOPIC);
+    System.out.println("123");
+    System.out.println("kafkaStreams.state() = " + kafkaStreams.state());
     Producer<String, String> producer = configureProducer();
+    Consumer<String, String> consumer = configureConsumer(OUTPUT_TOPIC);
 
-    producer.send(new ProducerRecord<>(INPUT_TOPIC, "123", "my-test-value"));
+    producer.send(new ProducerRecord<>(INPUT_TOPIC, "my-test-key", "my-test-value"));
 
     ConsumerRecord<String, String> singleRecord = KafkaTestUtils.getSingleRecord(consumer, OUTPUT_TOPIC);
     assertThat(singleRecord).isNotNull();
-    assertThat(singleRecord.key()).isEqualTo("123");
+    assertThat(singleRecord.key()).isEqualTo("my-test-key");
     assertThat(singleRecord.value()).isEqualTo("my-test-value");
 
     consumer.close();
@@ -229,6 +217,8 @@ public class SimpleKafkaTest {
 
   private Producer<String, String> configureProducer() {
     Map<String, Object> producerProps = new HashMap<>(KafkaTestUtils.producerProps(embeddedKafkaBroker));
+    producerProps.put("key.serializer",
+        "org.apache.kafka.common.serialization.StringSerializer");
     return new DefaultKafkaProducerFactory<String, String>(producerProps).createProducer();
   }
 
